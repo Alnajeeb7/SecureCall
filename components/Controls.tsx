@@ -26,6 +26,7 @@ export default function Controls({
   onLeave,
   onToggleChat,
   chatOpen,
+  unreadCount,
   code,
 }: {
   micOn: boolean;
@@ -39,6 +40,7 @@ export default function Controls({
   onLeave: () => void;
   onToggleChat: () => void;
   chatOpen: boolean;
+  unreadCount: number;
   code: string;
 }) {
   const [copied, setCopied] = useState(false);
@@ -72,7 +74,14 @@ export default function Controls({
           <ScreenShare size={18} />
         </IconButton>
         <IconButton onClick={onToggleChat} active={chatOpen} label="Chat">
-          <MessageSquare size={18} />
+          <span className="relative">
+            <MessageSquare size={18} />
+            {!chatOpen && unreadCount > 0 && (
+              <span className="absolute -top-2 -right-2 min-w-[16px] h-4 px-1 rounded-full bg-signal text-void text-[10px] leading-4 font-bold text-center">
+                {unreadCount > 9 ? "9+" : unreadCount}
+              </span>
+            )}
+          </span>
         </IconButton>
         <IconButton
           onClick={onToggleLowBandwidth}

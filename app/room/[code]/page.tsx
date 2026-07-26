@@ -76,6 +76,7 @@ function RoomInner({ code, name }: { code: string; name: string }) {
   const router = useRouter();
   const isHost = search.get("host") === "1";
   const [chatOpen, setChatOpen] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
   const [copied, setCopied] = useState(false);
 
   const {
@@ -95,6 +96,21 @@ function RoomInner({ code, name }: { code: string; name: string }) {
     sendMessage,
     leave,
   } = useCallSecure(code, isHost, name);
+
+  // Show a small badge on the chat icon when a message comes in while
+  // the panel is closed, instead of it silently piling up unnoticed.
+  useEffect(() => {
+    if (chatOpen) {
+      setUnreadCount(0);
+    } else if (messages.length > 0) {
+      setUnreadCount((c) => c + 1);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [messages.length]);
+
+  useEffect(() => {
+    if (chatOpen) setUnreadCount(0);
+  }, [chatOpen]);
 
   function handleLeave() {
     leave();
@@ -255,6 +271,7 @@ function RoomInner({ code, name }: { code: string; name: string }) {
         onLeave={handleLeave}
         onToggleChat={() => setChatOpen((v) => !v)}
         chatOpen={chatOpen}
+        unreadCount={unreadCount}
         code={code}
       />
     </main>
