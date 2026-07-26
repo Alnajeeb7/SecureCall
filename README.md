@@ -1,4 +1,4 @@
-# SecureCall
+# CallSecure
 
 Privacy-first, peer-to-peer video calling. Create a meeting, get a 6-character
 code, share it, connect — no accounts, no recordings, nothing stored.

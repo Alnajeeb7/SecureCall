@@ -19,7 +19,7 @@ const mono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "SecureCall — One code. One click. Instant secure connection.",
+  title: "CallSecure — One code. One click. Instant secure connection.",
   description:
     "Privacy-first video calling. No accounts, no recordings, no servers holding your conversation. Just a code.",
 };

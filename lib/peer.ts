@@ -99,7 +99,7 @@ const ICE_SERVERS: RTCIceServer[] = [
  * that the room code refers to. Guests leaving just drop out of the mesh;
  * everyone else continues.
  */
-export function useSecureCall(roomCode: string, isHost: boolean, displayName: string) {
+export function useCallSecure(roomCode: string, isHost: boolean, displayName: string) {
   const myName = displayName.trim().slice(0, 24) || "Guest";
   const peerRef = useRef<Peer | null>(null);
   const localStreamRef = useRef<MediaStream | null>(null);

@@ -53,7 +53,7 @@ export default function Home() {
           <GithubBadge />
           <div className="flex items-center gap-2">
             <Lock size={16} className="text-signal" />
-            <span className="font-display font-bold tracking-tight text-sm">SECURECALL</span>
+            <span className="font-display font-bold tracking-tight text-sm">CALLSECURE</span>
           </div>
         </div>
         <span className="hidden sm:block font-mono text-[11px] tracking-[0.15em] text-muted">

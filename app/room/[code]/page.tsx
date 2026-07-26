@@ -3,13 +3,13 @@
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Lock, Copy, Check, ShieldAlert, Users, ArrowRight, Video } from "lucide-react";
-import { useSecureCall, MAX_PARTICIPANTS } from "@/lib/peer";
+import { useCallSecure, MAX_PARTICIPANTS } from "@/lib/peer";
 import VideoTile from "@/components/VideoTile";
 import Controls from "@/components/Controls";
 import Chat from "@/components/Chat";
 import GithubBadge, { REPO_URL } from "@/components/GithubBadge";
 
-const NAME_KEY = "securecall:name";
+const NAME_KEY = "callsecure:name";
 
 export default function RoomPage() {
   const { code } = useParams<{ code: string }>();
@@ -94,7 +94,7 @@ function RoomInner({ code, name }: { code: string; name: string }) {
     toggleLowBandwidth,
     sendMessage,
     leave,
-  } = useSecureCall(code, isHost, name);
+  } = useCallSecure(code, isHost, name);
 
   function handleLeave() {
     leave();
@@ -102,7 +102,8 @@ function RoomInner({ code, name }: { code: string; name: string }) {
   }
 
   function copyLink() {
-    navigator.clipboard.writeText(code);
+    const url = `${window.location.origin}/room/${code}`;
+    navigator.clipboard.writeText(url);
     setCopied(true);
     setTimeout(() => setCopied(false), 1600);
   }
@@ -185,9 +186,12 @@ function RoomInner({ code, name }: { code: string; name: string }) {
         {status === "waiting" && (
           <button
             onClick={copyLink}
-            className="mt-4 flex items-center gap-2 font-mono text-sm tracking-[0.3em] glass rounded-xl px-5 py-3"
+            className="mt-4 flex items-center gap-2 font-mono text-sm glass rounded-xl px-5 py-3"
           >
-            {code}
+            <span className="tracking-[0.2em]">{code}</span>
+            <span className="text-muted text-xs font-sans">
+              {copied ? "Link copied" : "Copy link"}
+            </span>
             {copied ? <Check size={14} className="text-secure" /> : <Copy size={14} className="text-muted" />}
           </button>
         )}

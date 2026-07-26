@@ -44,7 +44,8 @@ export default function Controls({
   const [copied, setCopied] = useState(false);
 
   function copyCode() {
-    navigator.clipboard.writeText(code);
+    const url = typeof window !== "undefined" ? `${window.location.origin}/room/${code}` : code;
+    navigator.clipboard.writeText(url);
     setCopied(true);
     setTimeout(() => setCopied(false), 1600);
   }
@@ -54,7 +55,7 @@ export default function Controls({
       <button
         onClick={copyCode}
         className="hidden sm:flex items-center gap-2 font-mono text-sm tracking-[0.2em] px-3 py-2 rounded-xl hover:bg-white/5 transition"
-        title="Copy room code"
+        title="Copy shareable link"
       >
         {code}
         {copied ? <Check size={14} className="text-secure" /> : <Copy size={14} className="text-muted" />}
