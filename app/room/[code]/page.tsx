@@ -112,6 +112,14 @@ function RoomInner({ code, name }: { code: string; name: string }) {
     if (chatOpen) setUnreadCount(0);
   }, [chatOpen]);
 
+  const [callSeconds, setCallSeconds] = useState(0);
+  useEffect(() => {
+    if (status !== "connected") return;
+    const t = setInterval(() => setCallSeconds((s) => s + 1), 1000);
+    return () => clearInterval(t);
+  }, [status]);
+  const durationLabel = `${String(Math.floor(callSeconds / 60)).padStart(2, "0")}:${String(callSeconds % 60).padStart(2, "0")}`;
+
   function handleLeave() {
     leave();
     router.push("/");
@@ -231,6 +239,7 @@ function RoomInner({ code, name }: { code: string; name: string }) {
             <Lock size={12} />
             ENCRYPTED · PEER-TO-PEER
           </span>
+          <span className="hidden sm:inline text-xs text-muted font-mono">{durationLabel}</span>
         </div>
         <span className="flex items-center gap-1.5 text-xs text-muted font-mono">
           <Users size={13} />
