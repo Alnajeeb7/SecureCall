@@ -26,11 +26,18 @@ code, share it, connect — no accounts, no recordings, nothing stored.
 
 ### Current limits — read before treating this as production-grade
 
-- **Two-party calls only.** The MVP connects a host + one guest directly.
-  Group calls need either a mesh (each participant connects to every other
-  participant) or an SFU (a media relay server); the room-code/join flow
-  here is designed to extend to either, but it isn't wired up yet.
-  Implementer notes are in `lib/peer.ts`.
+- **Group calls, capped at 5 people (host included).** The app now runs a
+  full mesh: everyone connects directly to everyone else, so video/audio
+  never touches a server. Mesh doesn't scale gracefully past a handful of
+  people (each extra person adds a connection for every existing member),
+  which is why 5 is a deliberate ceiling, not an arbitrary one. Someone
+  trying to join a full room sees a "This room is full" screen with a link
+  to contact the maintainer on GitHub — swap `REPO_URL` in
+  `components/GithubBadge.tsx` if you fork this. Raising the cap for real
+  scale would mean moving to an SFU (a media relay server) instead of mesh.
+- **If the host leaves, the call ends for everyone.** The room code is the
+  host's peer id, so the host is the anchor the room is built around.
+  Guests leaving just drop out of the mesh; everyone else continues.
 - **The public PeerJS broker is a shared, free service.** It's fine for a
   personal project or demo; it is a trust dependency you don't control. For
   anything sensitive, run your own PeerServer (`npm i peer`, a few lines to
@@ -81,9 +88,18 @@ app/
   page.tsx                 Home: create/join
   room/[code]/page.tsx      Call screen
   layout.tsx, globals.css
+  icon.svg                 Favicon (auto-detected by Next.js)
 components/
   VideoTile.tsx    Controls.tsx    Chat.tsx    SecureTunnel.tsx
+  GithubBadge.tsx  Top-left link to this repo — also the "room full" contact
 lib/
-  peer.ts    WebRTC/PeerJS call logic (media, data channel, screen share)
+  peer.ts    WebRTC/PeerJS mesh call logic (media, data channel, screen share, capacity)
   code.ts    Room code generation/formatting
 ```
+
+## Before you deploy for real
+
+The repo link in `components/GithubBadge.tsx` (`REPO_URL`) is a placeholder
+pointing at `github.com/Alnajeeb7/SecureCall` — update it once you know which
+account/URL your fork actually lives at, so the "room full" contact link and
+the header GitHub icon point somewhere real.

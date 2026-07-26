@@ -39,7 +39,10 @@ export default function Chat({
           </p>
         )}
         {messages.map((m) => (
-          <div key={m.id} className={`flex ${m.from === "me" ? "justify-end" : "justify-start"}`}>
+          <div key={m.id} className={`flex flex-col ${m.from === "me" ? "items-end" : "items-start"}`}>
+            {m.from !== "me" && (
+              <span className="text-[10px] text-muted font-mono mb-0.5 px-1">{m.fromLabel}</span>
+            )}
             <span
               className={`max-w-[80%] rounded-xl px-3 py-2 text-sm break-words ${
                 m.from === "me" ? "bg-signal text-void" : "bg-white/8 text-ink"

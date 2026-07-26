@@ -4,7 +4,9 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Lock, ShieldCheck, EyeOff, Trash2, ArrowRight } from "lucide-react";
 import SecureTunnel from "@/components/SecureTunnel";
+import GithubBadge from "@/components/GithubBadge";
 import { generateRoomCode, formatCode } from "@/lib/code";
+import { MAX_PARTICIPANTS } from "@/lib/peer";
 
 export default function Home() {
   const router = useRouter();
@@ -29,9 +31,12 @@ export default function Home() {
   return (
     <main className="min-h-screen flex flex-col">
       <nav className="flex items-center justify-between px-6 md:px-10 py-6">
-        <div className="flex items-center gap-2">
-          <Lock size={16} className="text-signal" />
-          <span className="font-display font-bold tracking-tight text-sm">SECURECALL</span>
+        <div className="flex items-center gap-3">
+          <GithubBadge />
+          <div className="flex items-center gap-2">
+            <Lock size={16} className="text-signal" />
+            <span className="font-display font-bold tracking-tight text-sm">SECURECALL</span>
+          </div>
         </div>
         <span className="hidden sm:block font-mono text-[11px] tracking-[0.15em] text-muted">
           NO ACCOUNTS · NO RECORDINGS
@@ -92,6 +97,9 @@ export default function Home() {
               </button>
             </form>
             {joinError && <p className="text-alert text-xs">{joinError}</p>}
+            <p className="text-center text-muted text-[11px] font-mono tracking-wide pt-1">
+              UP TO {MAX_PARTICIPANTS} PEOPLE PER CALL
+            </p>
           </div>
         </div>
 
