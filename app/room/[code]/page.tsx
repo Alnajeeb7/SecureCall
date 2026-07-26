@@ -86,10 +86,12 @@ function RoomInner({ code, name }: { code: string; name: string }) {
     micOn,
     camOn,
     screenSharing,
+    lowBandwidth,
     messages,
     toggleMic,
     toggleCam,
     toggleScreenShare,
+    toggleLowBandwidth,
     sendMessage,
     leave,
   } = useSecureCall(code, isHost, name);
@@ -241,9 +243,11 @@ function RoomInner({ code, name }: { code: string; name: string }) {
         micOn={micOn}
         camOn={camOn}
         screenSharing={screenSharing}
+        lowBandwidth={lowBandwidth}
         onToggleMic={toggleMic}
         onToggleCam={toggleCam}
         onToggleScreen={toggleScreenShare}
+        onToggleLowBandwidth={toggleLowBandwidth}
         onLeave={handleLeave}
         onToggleChat={() => setChatOpen((v) => !v)}
         chatOpen={chatOpen}

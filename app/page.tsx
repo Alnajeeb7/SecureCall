@@ -2,27 +2,45 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { Lock, ShieldCheck, EyeOff, Trash2, ArrowRight } from "lucide-react";
+import { Lock, ShieldCheck, EyeOff, Trash2, ArrowRight, Link2 } from "lucide-react";
 import SecureTunnel from "@/components/SecureTunnel";
 import GithubBadge from "@/components/GithubBadge";
-import { generateRoomCode, formatCode } from "@/lib/code";
+import { generateRoomCode, formatCode, slugify, isValidSlug } from "@/lib/code";
 import { MAX_PARTICIPANTS } from "@/lib/peer";
 
 export default function Home() {
   const router = useRouter();
   const [joinCode, setJoinCode] = useState("");
   const [joinError, setJoinError] = useState<string | null>(null);
+  const [customOpen, setCustomOpen] = useState(false);
+  const [customSlug, setCustomSlug] = useState("");
+  const [customError, setCustomError] = useState<string | null>(null);
 
   function createMeeting() {
     const code = generateRoomCode();
     router.push(`/room/${code}?host=1`);
   }
 
+  function createCustomMeeting(e: React.FormEvent) {
+    e.preventDefault();
+    const clean = slugify(customSlug);
+    if (!isValidSlug(clean)) {
+      setCustomError("Use 4-32 letters, numbers, or hyphens — e.g. team-standup.");
+      return;
+    }
+    router.push(`/room/${clean}?host=1&custom=1`);
+  }
+
   function joinMeeting(e: React.FormEvent) {
     e.preventDefault();
-    const clean = formatCode(joinCode);
-    if (clean.length !== 6) {
-      setJoinError("Room codes are 6 characters.");
+    const raw = joinCode.trim();
+    // A custom link looks like "team-standup"; a generated code is 6
+    // characters. Only force-format (uppercase, strip symbols) when it
+    // looks like the latter, so custom links aren't mangled.
+    const looksLikeSlug = raw.includes("-") || (isValidSlug(raw.toLowerCase()) && raw.length > 6);
+    const clean = looksLikeSlug ? slugify(raw) : formatCode(raw);
+    if (!clean || (clean.length < 4)) {
+      setJoinError("Enter a 6-character code or a custom link.");
       return;
     }
     router.push(`/room/${clean}`);
@@ -72,6 +90,40 @@ export default function Home() {
               <ArrowRight size={18} />
             </button>
 
+            {!customOpen ? (
+              <button
+                onClick={() => setCustomOpen(true)}
+                className="w-full flex items-center justify-center gap-2 text-muted text-xs hover:text-signal transition py-1"
+              >
+                <Link2 size={13} />
+                Use a custom link instead
+              </button>
+            ) : (
+              <form onSubmit={createCustomMeeting} className="space-y-2">
+                <div className="flex items-center gap-1 bg-white/5 border border-border rounded-xl px-3 py-2.5 focus-within:border-signal transition">
+                  <span className="text-muted text-xs font-mono shrink-0">/room/</span>
+                  <input
+                    autoFocus
+                    value={customSlug}
+                    onChange={(e) => {
+                      setCustomError(null);
+                      setCustomSlug(e.target.value);
+                    }}
+                    placeholder="team-standup"
+                    maxLength={32}
+                    className="flex-1 min-w-0 bg-transparent text-sm outline-none placeholder:text-muted/50"
+                  />
+                </div>
+                {customError && <p className="text-alert text-xs">{customError}</p>}
+                <button
+                  type="submit"
+                  className="w-full rounded-xl border border-border px-5 py-2.5 text-sm font-semibold hover:border-signal hover:text-signal transition"
+                >
+                  Create with this link
+                </button>
+              </form>
+            )}
+
             <div className="flex items-center gap-3 text-muted text-xs">
               <div className="h-px flex-1 bg-border" />
               or join with a code
@@ -83,11 +135,11 @@ export default function Home() {
                 value={joinCode}
                 onChange={(e) => {
                   setJoinError(null);
-                  setJoinCode(formatCode(e.target.value));
+                  setJoinCode(e.target.value);
                 }}
-                placeholder="CODE"
-                maxLength={6}
-                className="flex-1 min-w-0 bg-white/5 border border-border rounded-xl px-4 py-3 font-mono tracking-[0.3em] text-center uppercase placeholder:text-muted/50 focus:border-signal outline-none transition"
+                placeholder="CODE or custom-link"
+                maxLength={32}
+                className="flex-1 min-w-0 bg-white/5 border border-border rounded-xl px-4 py-3 font-mono tracking-wide text-center placeholder:text-muted/50 focus:border-signal outline-none transition"
               />
               <button
                 type="submit"

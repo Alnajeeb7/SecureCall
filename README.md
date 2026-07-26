@@ -41,6 +41,16 @@ direct, private, working connection, fast, wherever they each happen to be.
 - **You pick a display name before joining**, remembered only in your
   browser tab (not sent anywhere but to the other people on the call), so
   calls show real names instead of "Guest 4F2A."
+- **Hosts can create a custom link** (e.g. `/room/team-standup`) instead of
+  a random 6-character code — easier to remember, easier to share over
+  chat apps that international callers already use. Falls back to a
+  random code if left blank; if a custom name is already taken, the host
+  is told to pick another one.
+- **Low-bandwidth mode** is a one-tap toggle during a call that drops
+  resolution and caps outgoing video bitrate. It's aimed at the exact case
+  that motivated this project — long-distance calls over mobile data or
+  congested links, where a lower-but-stable picture beats a high-res
+  stream that keeps freezing.
 
 ### Current limits — read before treating this as production-grade
 

@@ -115,6 +115,7 @@ export function useSecureCall(roomCode: string, isHost: boolean, displayName: st
   const [micOn, setMicOn] = useState(true);
   const [camOn, setCamOn] = useState(true);
   const [screenSharing, setScreenSharing] = useState(false);
+  const [lowBandwidth, setLowBandwidth] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
 
   // If we've been stuck on "connecting" for a while, let the UI reassure the
@@ -382,6 +383,45 @@ export function useSecureCall(roomCode: string, isHost: boolean, displayName: st
     }
   }, [screenSharing]);
 
+  /**
+   * Weaker or congested links — common on long-distance international
+   * routes, especially over mobile data — do better with a lower
+   * resolution/bitrate than they do dropping frames at full HD. This caps
+   * both the local capture and every outgoing video encoding.
+   */
+  const toggleLowBandwidth = useCallback(async () => {
+    const next = !lowBandwidth;
+    setLowBandwidth(next);
+
+    const videoTrack = localStreamRef.current?.getVideoTracks()[0];
+    if (videoTrack) {
+      try {
+        await videoTrack.applyConstraints(
+          next
+            ? { width: { ideal: 480 }, height: { ideal: 360 }, frameRate: { ideal: 15 } }
+            : { width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 30 } }
+        );
+      } catch {
+        /* some cameras reject constraint changes mid-stream; safe to ignore */
+      }
+    }
+
+    const senders = Array.from(callsRef.current.values())
+      .map((call) => call.peerConnection?.getSenders().find((s) => s.track?.kind === "video"))
+      .filter((s): s is RTCRtpSender => Boolean(s));
+
+    for (const sender of senders) {
+      const params = sender.getParameters();
+      if (!params.encodings?.length) params.encodings = [{}];
+      params.encodings[0].maxBitrate = next ? 250_000 : 2_500_000;
+      try {
+        await sender.setParameters(params);
+      } catch {
+        /* not every browser lets encoding params change mid-call */
+      }
+    }
+  }, [lowBandwidth]);
+
   const sendMessage = useCallback(
     (text: string) => {
       if (!text.trim()) return;
@@ -411,10 +451,12 @@ export function useSecureCall(roomCode: string, isHost: boolean, displayName: st
     micOn,
     camOn,
     screenSharing,
+    lowBandwidth,
     messages,
     toggleMic,
     toggleCam,
     toggleScreenShare,
+    toggleLowBandwidth,
     sendMessage,
     leave,
   };

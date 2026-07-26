@@ -10,6 +10,7 @@ import {
   MessageSquare,
   Copy,
   Check,
+  Gauge,
 } from "lucide-react";
 import { useState } from "react";
 
@@ -17,9 +18,11 @@ export default function Controls({
   micOn,
   camOn,
   screenSharing,
+  lowBandwidth,
   onToggleMic,
   onToggleCam,
   onToggleScreen,
+  onToggleLowBandwidth,
   onLeave,
   onToggleChat,
   chatOpen,
@@ -28,9 +31,11 @@ export default function Controls({
   micOn: boolean;
   camOn: boolean;
   screenSharing: boolean;
+  lowBandwidth: boolean;
   onToggleMic: () => void;
   onToggleCam: () => void;
   onToggleScreen: () => void;
+  onToggleLowBandwidth: () => void;
   onLeave: () => void;
   onToggleChat: () => void;
   chatOpen: boolean;
@@ -67,6 +72,13 @@ export default function Controls({
         </IconButton>
         <IconButton onClick={onToggleChat} active={chatOpen} label="Chat">
           <MessageSquare size={18} />
+        </IconButton>
+        <IconButton
+          onClick={onToggleLowBandwidth}
+          active={!lowBandwidth}
+          label={lowBandwidth ? "Low-bandwidth mode is on — tap for normal quality" : "Struggling connection? Switch to low-bandwidth mode"}
+        >
+          <Gauge size={18} />
         </IconButton>
         <button
           onClick={onLeave}
