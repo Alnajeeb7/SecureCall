@@ -3,6 +3,21 @@
 Privacy-first, peer-to-peer video calling. Create a meeting, get a 6-character
 code, share it, connect — no accounts, no recordings, nothing stored.
 
+## Why this exists
+
+Most "quick call" tools assume both people are on decent, similarly-behaved
+networks. That assumption breaks down a lot faster than you'd think —
+especially on international calls, where one side is often on a mobile
+carrier network with strict NAT rules that plain WebRTC (STUN-only) can't get
+through. That's the specific gap this project is trying to close: a call that
+still connects reliably when one person is on a corporate/mobile network in
+one country and the other is halfway across the world, without asking either
+of them to install anything or make an account.
+
+It's a small, honest project — not trying to replace Zoom or Meet. It's for
+the case those tools sometimes fumble: two (or a few) people who just want a
+direct, private, working connection, fast, wherever they each happen to be.
+
 ## How the privacy actually works
 
 - **Video/audio never touch a server.** WebRTC connects the two browsers
@@ -23,6 +38,9 @@ code, share it, connect — no accounts, no recordings, nothing stored.
   saved anywhere, isn't guessable in bulk (33-character alphabet, no
   ambiguous characters), and stops working the moment the host leaves.
 - **No accounts, no cookies, no analytics** are wired into this build.
+- **You pick a display name before joining**, remembered only in your
+  browser tab (not sent anywhere but to the other people on the call), so
+  calls show real names instead of "Guest 4F2A."
 
 ### Current limits — read before treating this as production-grade
 
@@ -43,13 +61,16 @@ code, share it, connect — no accounts, no recordings, nothing stored.
   anything sensitive, run your own PeerServer (`npm i peer`, a few lines to
   self-host) and point `lib/peer.ts` at it via `PeerJS`'s `host`/`port`
   options.
-- **No TURN server is configured.** Some networks (strict corporate
-  firewalls, some mobile carriers) block direct peer connections and need a
-  TURN relay to establish the call at all. Add TURN credentials (e.g. via
-  Twilio, Cloudflare, or `coturn` you host yourself) in the `Peer` config in
-  `lib/peer.ts` for reliable connectivity everywhere. Note a TURN relay
-  necessarily sees encrypted packets pass through it — it can't read them,
-  but it's a design tradeoff worth knowing about.
+- **TURN relay is on by default (via Openrelay's free/shared server)** so
+  calls can still connect across tough NATs — e.g. mobile-carrier-to-mobile-
+  carrier, or strict corporate networks — where STUN alone would fail. This
+  is what makes international routes (the original motivation for this
+  project) actually work instead of hanging on "connecting." Openrelay is
+  fine for personal use and testing, but it's shared and rate-limited; for
+  production, swap in your own TURN credentials (Twilio, Cloudflare Calls,
+  Xirsys, or a self-hosted `coturn`) in `ICE_SERVERS` in `lib/peer.ts`. Note
+  a TURN relay necessarily sees encrypted packets pass through it — it can't
+  read them, but it's a design tradeoff worth knowing about.
 - **File sharing, live captions, virtual backgrounds, reactions, and
   picture-in-picture** from the original feature wishlist aren't built yet —
   the core call, chat, screen share, and controls are.

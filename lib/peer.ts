@@ -20,6 +20,7 @@ export type Participant = {
   stream: MediaStream | null;
   micOn: boolean;
   camOn: boolean;
+  name: string;
 };
 
 export type CallStatus =
@@ -29,7 +30,8 @@ export type CallStatus =
   | "connected"
   | "full" // room was at capacity when we tried to join
   | "left"
-  | "error";
+  | "error"
+  | "slow"; // still trying after a while — likely a tough NAT, waiting on TURN
 
 type WireMsg =
   | { type: "accepted" }
@@ -37,7 +39,8 @@ type WireMsg =
   | { type: "peer-joined"; id: string }
   | { type: "peer-left"; id: string }
   | { type: "chat"; text: string }
-  | { type: "media-state"; micOn: boolean; camOn: boolean };
+  | { type: "media-state"; micOn: boolean; camOn: boolean }
+  | { type: "identity"; name: string };
 
 export function shortLabel(id: string) {
   return `Guest ${id.slice(-4).toUpperCase()}`;
@@ -96,12 +99,14 @@ const ICE_SERVERS: RTCIceServer[] = [
  * that the room code refers to. Guests leaving just drop out of the mesh;
  * everyone else continues.
  */
-export function useSecureCall(roomCode: string, isHost: boolean) {
+export function useSecureCall(roomCode: string, isHost: boolean, displayName: string) {
+  const myName = displayName.trim().slice(0, 24) || "Guest";
   const peerRef = useRef<Peer | null>(null);
   const localStreamRef = useRef<MediaStream | null>(null);
   const cameraTrackRef = useRef<MediaStreamTrack | null>(null);
   const dataConnsRef = useRef<Map<string, DataConnection>>(new Map());
   const callsRef = useRef<Map<string, MediaConnection>>(new Map());
+  const namesRef = useRef<Map<string, string>>(new Map());
 
   const [localStream, setLocalStream] = useState<MediaStream | null>(null);
   const [participants, setParticipants] = useState<Map<string, Participant>>(new Map());
@@ -112,10 +117,21 @@ export function useSecureCall(roomCode: string, isHost: boolean) {
   const [screenSharing, setScreenSharing] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
 
+  // If we've been stuck on "connecting" for a while, let the UI reassure the
+  // user instead of looking frozen — this is common on tough international
+  // routes where the call has to fall back to relaying through TURN.
+  useEffect(() => {
+    if (status !== "connecting") return;
+    const t = setTimeout(() => {
+      setStatus((s) => (s === "connecting" ? "slow" : s));
+    }, 8000);
+    return () => clearTimeout(t);
+  }, [status]);
+
   const upsertParticipant = useCallback((id: string, patch: Partial<Participant>) => {
     setParticipants((prev) => {
       const next = new Map(prev);
-      const existing = next.get(id) ?? { id, stream: null, micOn: true, camOn: true };
+      const existing = next.get(id) ?? { id, stream: null, micOn: true, camOn: true, name: shortLabel(id) };
       next.set(id, { ...existing, ...patch });
       return next;
     });
@@ -132,6 +148,7 @@ export function useSecureCall(roomCode: string, isHost: boolean) {
     dataConnsRef.current.delete(id);
     callsRef.current.get(id)?.close();
     callsRef.current.delete(id);
+    namesRef.current.delete(id);
   }, []);
 
   const broadcastMsg = useCallback((msg: WireMsg) => {
@@ -159,6 +176,12 @@ export function useSecureCall(roomCode: string, isHost: boolean) {
 
     function wireData(conn: DataConnection) {
       dataConns.set(conn.peer, conn);
+      const sendIdentity = () => conn.send({ type: "identity", name: myName } satisfies WireMsg);
+      // PeerJS only fires "open" once; if we're wiring a connection that's
+      // already open (e.g. the host wires it inside its own "open" handler),
+      // send right away instead of waiting for an event that already fired.
+      if (conn.open) sendIdentity();
+      else conn.on("open", sendIdentity);
       conn.on("data", (raw) => handleMessage(conn.peer, raw as WireMsg));
       conn.on("close", () => {
         if (!isHost && conn.peer === roomCode) {
@@ -196,15 +219,23 @@ export function useSecureCall(roomCode: string, isHost: boolean) {
         case "peer-left":
           removeParticipant(msg.id);
           break;
-        case "chat":
+        case "chat": {
+          const knownName = namesRef.current.get(fromId) ?? shortLabel(fromId);
           setMessages((m) => [
             ...m,
-            { id: crypto.randomUUID(), from: fromId, fromLabel: shortLabel(fromId), text: msg.text, time: Date.now() },
+            { id: crypto.randomUUID(), from: fromId, fromLabel: knownName, text: msg.text, time: Date.now() },
           ]);
           break;
+        }
         case "media-state":
           upsertParticipant(fromId, { micOn: msg.micOn, camOn: msg.camOn });
           break;
+        case "identity": {
+          const cleanName = msg.name.trim().slice(0, 24) || shortLabel(fromId);
+          namesRef.current.set(fromId, cleanName);
+          upsertParticipant(fromId, { name: cleanName });
+          break;
+        }
       }
     }
 
@@ -292,13 +323,17 @@ export function useSecureCall(roomCode: string, isHost: boolean) {
           } else if (type === "peer-unavailable") {
             setError("No meeting found with that code. Check it and try again.");
           } else {
-            setError("Couldn't establish a secure connection.");
+            setError(
+              "Couldn't establish a secure connection. This can happen on restrictive networks — try switching from WiFi to mobile data (or vice versa) and rejoin with the same code."
+            );
           }
           setStatus("error");
         });
       } catch {
         if (!cancelled) {
-          setError("Camera or microphone access was denied.");
+          setError(
+            "We couldn't access your camera or microphone. Click the camera icon in your browser's address bar and choose \"Allow,\" then reload this page."
+          );
           setStatus("error");
         }
       }

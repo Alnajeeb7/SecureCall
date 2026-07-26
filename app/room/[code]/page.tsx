@@ -1,16 +1,77 @@
 "use client";
 
 import { useParams, useRouter, useSearchParams } from "next/navigation";
-import { useState } from "react";
-import { Lock, Copy, Check, ShieldAlert, Users } from "lucide-react";
-import { useSecureCall, shortLabel, MAX_PARTICIPANTS } from "@/lib/peer";
+import { useEffect, useState } from "react";
+import { Lock, Copy, Check, ShieldAlert, Users, ArrowRight, Video } from "lucide-react";
+import { useSecureCall, MAX_PARTICIPANTS } from "@/lib/peer";
 import VideoTile from "@/components/VideoTile";
 import Controls from "@/components/Controls";
 import Chat from "@/components/Chat";
 import GithubBadge, { REPO_URL } from "@/components/GithubBadge";
 
+const NAME_KEY = "securecall:name";
+
 export default function RoomPage() {
   const { code } = useParams<{ code: string }>();
+  const router = useRouter();
+  const [name, setName] = useState<string | null>(null);
+  const [nameInput, setNameInput] = useState("");
+
+  // Remember the last name used on this device so returning users
+  // don't have to retype it every call.
+  useEffect(() => {
+    const saved = typeof window !== "undefined" ? sessionStorage.getItem(NAME_KEY) : null;
+    if (saved) setNameInput(saved);
+  }, []);
+
+  if (!name) {
+    return (
+      <Centered>
+        <div className="glass rounded-2xl p-6 w-full max-w-sm">
+          <Video size={22} className="text-signal mb-4 mx-auto" />
+          <p className="font-display font-semibold text-lg mb-1">Before you join</p>
+          <p className="text-muted text-sm mb-5">
+            What should the other person call you? Only shown for this call.
+          </p>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              const clean = nameInput.trim().slice(0, 24);
+              if (!clean) return;
+              sessionStorage.setItem(NAME_KEY, clean);
+              setName(clean);
+            }}
+            className="space-y-3"
+          >
+            <input
+              autoFocus
+              value={nameInput}
+              onChange={(e) => setNameInput(e.target.value)}
+              placeholder="Your name"
+              maxLength={24}
+              className="w-full bg-white/5 border border-border rounded-xl px-4 py-3 text-center outline-none focus:border-signal transition"
+            />
+            <button
+              type="submit"
+              disabled={!nameInput.trim()}
+              className="w-full flex items-center justify-center gap-2 rounded-xl bg-ink text-void font-semibold px-5 py-3 hover:opacity-90 transition disabled:opacity-40 disabled:pointer-events-none"
+            >
+              Join call
+              <ArrowRight size={16} />
+            </button>
+          </form>
+          <button onClick={() => router.push("/")} className="text-muted text-xs mt-4 hover:text-ink transition">
+            Back home
+          </button>
+        </div>
+      </Centered>
+    );
+  }
+
+  return <RoomInner code={code} name={name} />;
+}
+
+function RoomInner({ code, name }: { code: string; name: string }) {
   const search = useSearchParams();
   const router = useRouter();
   const isHost = search.get("host") === "1";
@@ -31,7 +92,7 @@ export default function RoomPage() {
     toggleScreenShare,
     sendMessage,
     leave,
-  } = useSecureCall(code, isHost);
+  } = useSecureCall(code, isHost, name);
 
   function handleLeave() {
     leave();
@@ -102,13 +163,23 @@ export default function RoomPage() {
     );
   }
 
-  if (status === "idle" || status === "connecting" || status === "waiting") {
+  if (status === "idle" || status === "connecting" || status === "waiting" || status === "slow") {
     return (
       <Centered>
         <div className="w-3 h-3 rounded-full bg-signal animate-blink mb-5" />
         <p className="font-display font-semibold text-lg mb-1">
-          {status === "waiting" ? "Waiting for people to join" : "Setting up your secure line"}
+          {status === "waiting"
+            ? "Waiting for people to join"
+            : status === "slow"
+            ? "Still connecting…"
+            : "Setting up your secure line"}
         </p>
+        {status === "slow" && (
+          <p className="text-muted text-xs max-w-xs mb-2">
+            This can take a little longer across countries or on mobile networks
+            while we find the best route. Hang tight.
+          </p>
+        )}
         {status === "waiting" && (
           <button
             onClick={copyLink}
@@ -151,12 +222,12 @@ export default function RoomPage() {
             <VideoTile
               key={p.id}
               stream={p.stream}
-              label={shortLabel(p.id)}
+              label={p.name}
               camOff={!p.camOn}
               micOn={p.micOn}
             />
           ))}
-          <VideoTile stream={localStream} muted isSelf label="You" camOff={!camOn} micOn={micOn} />
+          <VideoTile stream={localStream} muted isSelf label={`${name} (You)`} camOff={!camOn} micOn={micOn} />
         </div>
 
         {chatOpen && (
