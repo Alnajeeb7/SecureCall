@@ -77,6 +77,7 @@ function RoomInner({ code, name }: { code: string; name: string }) {
   const isHost = search.get("host") === "1";
   const [chatOpen, setChatOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [preview, setPreview] = useState<{ name: string; text: string } | null>(null);
   const [copied, setCopied] = useState(false);
 
   const {
@@ -102,9 +103,15 @@ function RoomInner({ code, name }: { code: string; name: string }) {
   useEffect(() => {
     if (chatOpen) {
       setUnreadCount(0);
-    } else if (messages.length > 0) {
-      setUnreadCount((c) => c + 1);
+      return;
     }
+    if (messages.length === 0) return;
+    const last = messages[messages.length - 1];
+    if (last.from === "me") return;
+    setUnreadCount((c) => c + 1);
+    setPreview({ name: last.fromLabel, text: last.text });
+    const t = setTimeout(() => setPreview(null), 4000);
+    return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [messages.length]);
 
@@ -281,6 +288,7 @@ function RoomInner({ code, name }: { code: string; name: string }) {
         onToggleChat={() => setChatOpen((v) => !v)}
         chatOpen={chatOpen}
         unreadCount={unreadCount}
+        preview={preview}
         code={code}
       />
     </main>

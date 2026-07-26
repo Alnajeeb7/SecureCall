@@ -104,6 +104,7 @@ export function useCallSecure(roomCode: string, isHost: boolean, displayName: st
   const peerRef = useRef<Peer | null>(null);
   const localStreamRef = useRef<MediaStream | null>(null);
   const cameraTrackRef = useRef<MediaStreamTrack | null>(null);
+  const screenTrackRef = useRef<MediaStreamTrack | null>(null);
   const dataConnsRef = useRef<Map<string, DataConnection>>(new Map());
   const callsRef = useRef<Map<string, MediaConnection>>(new Map());
   const namesRef = useRef<Map<string, string>>(new Map());
@@ -168,6 +169,13 @@ export function useCallSecure(roomCode: string, isHost: boolean, displayName: st
 
     function wireCall(call: MediaConnection) {
       calls.set(call.peer, call);
+      // If we're already screen sharing when this call connects (e.g. we
+      // started sharing while alone, then someone joined), give them the
+      // screen track right away instead of the camera.
+      if (screenTrackRef.current) {
+        const sender = call.peerConnection?.getSenders().find((s) => s.track?.kind === "video");
+        sender?.replaceTrack(screenTrackRef.current).catch(() => {});
+      }
       call.on("stream", (remote) => {
         upsertParticipant(call.peer, { stream: remote });
         markConnected();
@@ -250,6 +258,8 @@ export function useCallSecure(roomCode: string, isHost: boolean, displayName: st
       calls.clear();
       dataConns.clear();
       stream?.getTracks().forEach((t) => t.stop());
+      screenTrackRef.current?.stop();
+      screenTrackRef.current = null;
       try {
         peerRef.current?.destroy();
       } catch {
@@ -365,12 +375,15 @@ export function useCallSecure(roomCode: string, isHost: boolean, displayName: st
     const senders = Array.from(callsRef.current.values())
       .map((call) => call.peerConnection?.getSenders().find((s) => s.track?.kind === "video"))
       .filter((s): s is RTCRtpSender => Boolean(s));
-    if (senders.length === 0) return;
 
     if (!screenSharing) {
       try {
         const display = await navigator.mediaDevices.getDisplayMedia({ video: true });
         const screenTrack = display.getVideoTracks()[0];
+        screenTrackRef.current = screenTrack;
+        // No one may be connected yet (e.g. sharing while waiting for
+        // guests) — that's fine, wireCall() applies this track the moment
+        // someone does connect.
         await Promise.all(senders.map((s) => s.replaceTrack(screenTrack)));
         screenTrack.onended = () => toggleScreenShare();
         setScreenSharing(true);
@@ -378,7 +391,8 @@ export function useCallSecure(roomCode: string, isHost: boolean, displayName: st
         /* user cancelled the share picker */
       }
     } else if (cameraTrackRef.current) {
-      await Promise.all(senders.map((s) => s.replaceTrack(cameraTrackRef.current)));
+      screenTrackRef.current = null;
+      await Promise.all(senders.map((s) => s.replaceTrack(cameraTrackRef.current!)));
       setScreenSharing(false);
     }
   }, [screenSharing]);
@@ -435,6 +449,8 @@ export function useCallSecure(roomCode: string, isHost: boolean, displayName: st
     callsRef.current.forEach((c) => c.close());
     dataConnsRef.current.forEach((c) => c.close());
     localStreamRef.current?.getTracks().forEach((t) => t.stop());
+    screenTrackRef.current?.stop();
+    screenTrackRef.current = null;
     try {
       peerRef.current?.destroy();
     } catch {

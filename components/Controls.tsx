@@ -27,6 +27,7 @@ export default function Controls({
   onToggleChat,
   chatOpen,
   unreadCount,
+  preview,
   code,
 }: {
   micOn: boolean;
@@ -41,6 +42,7 @@ export default function Controls({
   onToggleChat: () => void;
   chatOpen: boolean;
   unreadCount: number;
+  preview: { name: string; text: string } | null;
   code: string;
 }) {
   const [copied, setCopied] = useState(false);
@@ -79,6 +81,12 @@ export default function Controls({
             {!chatOpen && unreadCount > 0 && (
               <span className="absolute -top-2 -right-2 min-w-[16px] h-4 px-1 rounded-full bg-signal text-void text-[10px] leading-4 font-bold text-center">
                 {unreadCount > 9 ? "9+" : unreadCount}
+              </span>
+            )}
+            {!chatOpen && preview && (
+              <span className="absolute bottom-full mb-3 left-1/2 -translate-x-1/2 w-max max-w-[200px] glass rounded-xl px-3 py-2 text-left shadow-lg pointer-events-none">
+                <span className="block text-[10px] text-signal font-mono mb-0.5">{preview.name}</span>
+                <span className="block text-xs text-ink truncate">{preview.text}</span>
               </span>
             )}
           </span>
