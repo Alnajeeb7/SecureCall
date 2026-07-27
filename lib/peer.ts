@@ -177,6 +177,13 @@ export function useCallSecure(roomCode: string, isHost: boolean, displayName: st
         sender?.replaceTrack(screenTrackRef.current).catch(() => {});
       }
       call.on("stream", (remote) => {
+        // eslint-disable-next-line no-console
+        console.log(
+          `[CallSecure] Remote stream from ${call.peer.slice(-4)} — audio tracks:`,
+          remote.getAudioTracks().length,
+          "video tracks:",
+          remote.getVideoTracks().length
+        );
         upsertParticipant(call.peer, { stream: remote });
         markConnected();
       });
@@ -191,6 +198,8 @@ export function useCallSecure(roomCode: string, isHost: boolean, displayName: st
       const pc = call.peerConnection;
       if (pc) {
         pc.oniceconnectionstatechange = () => {
+          // eslint-disable-next-line no-console
+          console.log(`[CallSecure] ICE state with ${call.peer.slice(-4)}:`, pc.iceConnectionState);
           if (pc.iceConnectionState === "disconnected") {
             setTimeout(() => {
               if (pc.iceConnectionState === "disconnected" || pc.iceConnectionState === "failed") {

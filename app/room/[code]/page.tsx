@@ -274,7 +274,7 @@ function RoomInner({ code, name }: { code: string; name: string }) {
   }
 
   return (
-    <main className="min-h-screen flex flex-col p-4 md:p-6 gap-4">
+    <main className="h-dvh overflow-hidden flex flex-col p-4 md:p-6 gap-4">
       <header className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <GithubBadge />
@@ -351,7 +351,7 @@ function RoomInner({ code, name }: { code: string; name: string }) {
             ))}
           </div>
         ) : (
-          <div className={`flex-1 grid ${gridClass} gap-4 min-h-0 auto-rows-fr`}>
+          <div className={`flex-1 grid ${gridClass} gap-4 min-h-0 auto-rows-fr overflow-y-auto`}>
             {tiles.map((t) => (
               <VideoTile
                 key={t.id}
