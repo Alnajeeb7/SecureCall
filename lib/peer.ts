@@ -181,6 +181,27 @@ export function useCallSecure(roomCode: string, isHost: boolean, displayName: st
         markConnected();
       });
       call.on("close", () => removeParticipant(call.peer));
+
+      // A transient network blip (WiFi hand-off, brief carrier drop, etc.)
+      // moves the underlying RTCPeerConnection to "disconnected" rather than
+      // tearing it down outright. Left alone this often stays broken even
+      // after the network recovers; an ICE restart renegotiates fresh
+      // candidates on the existing connection and reliably recovers audio
+      // and video together instead of requiring a full rejoin.
+      const pc = call.peerConnection;
+      if (pc) {
+        pc.oniceconnectionstatechange = () => {
+          if (pc.iceConnectionState === "disconnected") {
+            setTimeout(() => {
+              if (pc.iceConnectionState === "disconnected" || pc.iceConnectionState === "failed") {
+                pc.restartIce?.();
+              }
+            }, 2000);
+          } else if (pc.iceConnectionState === "failed") {
+            pc.restartIce?.();
+          }
+        };
+      }
     }
 
     function wireData(conn: DataConnection) {
@@ -283,6 +304,19 @@ export function useCallSecure(roomCode: string, isHost: boolean, displayName: st
         cameraTrackRef.current = media.getVideoTracks()[0] ?? null;
         setLocalStream(media);
 
+        if (media.getAudioTracks().length === 0) {
+          // Some OS/browser combinations (e.g. a virtual camera app that
+          // grabs video-only permission, or a muted-by-OS mic) can return a
+          // stream with no audio track at all, with getUserMedia never
+          // throwing. Every subsequent call would then be silent on this
+          // person's end no matter what the WebRTC layer does — surface it
+          // immediately instead of it looking like a mystery "one-way audio"
+          // bug for the other participants.
+          setError(
+            "No microphone audio was detected. Check that a microphone is connected and not disabled at the system level, then reload."
+          );
+        }
+
         const peerOpts = { debug: 0, config: { iceServers: ICE_SERVERS } };
         const peer = isHost ? new PeerCtor(roomCode, peerOpts) : new PeerCtor(peerOpts);
         peerRef.current = peer;
@@ -324,6 +358,15 @@ export function useCallSecure(roomCode: string, isHost: boolean, displayName: st
           if (!stream) return;
           call.answer(stream);
           wireCall(call);
+        });
+
+        // The signaling connection (to the PeerJS broker) is separate from
+        // the actual peer-to-peer media — losing it doesn't drop an
+        // in-progress call, but it does mean no one new can join or
+        // renegotiate until it's back. Reconnect automatically instead of
+        // leaving the room silently un-joinable after a network blip.
+        peer.on("disconnected", () => {
+          if (!cancelled) peer.reconnect();
         });
 
         peer.on("error", (err) => {

@@ -78,6 +78,7 @@ function RoomInner({ code, name }: { code: string; name: string }) {
   const [chatOpen, setChatOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
   const [preview, setPreview] = useState<{ name: string; text: string } | null>(null);
+  const [focusedId, setFocusedId] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
   const {
@@ -126,6 +127,12 @@ function RoomInner({ code, name }: { code: string; name: string }) {
     return () => clearInterval(t);
   }, [status]);
   const durationLabel = `${String(Math.floor(callSeconds / 60)).padStart(2, "0")}:${String(callSeconds % 60).padStart(2, "0")}`;
+
+  useEffect(() => {
+    if (focusedId && focusedId !== "self" && !participants.some((p) => p.id === focusedId)) {
+      setFocusedId(null);
+    }
+  }, [participants, focusedId]);
 
   function handleLeave() {
     leave();
@@ -235,7 +242,36 @@ function RoomInner({ code, name }: { code: string; name: string }) {
   }
 
   const total = participants.length + 1;
-  const gridCols = total <= 2 ? "sm:grid-cols-2" : total <= 4 ? "sm:grid-cols-2" : "sm:grid-cols-3";
+
+  // Per-count templates match the "Google Meet / Zoom" spec exactly for the
+  // common cases (1 full-bleed, 2 side-by-side, 4 a clean 2x2); 5-8 falls
+  // back to an auto-fit wrap grid that keeps tiles from shrinking below a
+  // usable size, and anything larger switches to a horizontally scrollable
+  // strip (see below) rather than continuing to shrink tiles.
+  const gridClass =
+    total === 1
+      ? "grid-cols-1"
+      : total === 2
+      ? "grid-cols-1 sm:grid-cols-2"
+      : total === 3
+      ? "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3"
+      : total === 4
+      ? "grid-cols-2"
+      : "grid-cols-[repeat(auto-fit,minmax(180px,1fr))]";
+
+  const useScrollStrip = total > 8;
+
+  type Tile = { id: string; stream: MediaStream | null; label: string; camOff: boolean; micOn: boolean; isSelf?: boolean };
+  const tiles: Tile[] = [
+    ...participants.map((p) => ({ id: p.id, stream: p.stream, label: p.name, camOff: !p.camOn, micOn: p.micOn })),
+    { id: "self", stream: localStream, label: `${name} (You)`, camOff: !camOn, micOn, isSelf: true },
+  ];
+  const focused = focusedId ? tiles.find((t) => t.id === focusedId) : null;
+  const others = focused ? tiles.filter((t) => t.id !== focused.id) : [];
+
+  function toggleFocus(id: string) {
+    setFocusedId((current) => (current === id ? null : id));
+  }
 
   return (
     <main className="min-h-screen flex flex-col p-4 md:p-6 gap-4">
@@ -254,19 +290,82 @@ function RoomInner({ code, name }: { code: string; name: string }) {
         </span>
       </header>
 
-      <div className="flex-1 flex flex-col md:flex-row gap-4 min-h-0">
-        <div className={`flex-1 grid grid-cols-1 ${gridCols} gap-4 min-h-0 auto-rows-fr`}>
-          {participants.map((p) => (
-            <VideoTile
-              key={p.id}
-              stream={p.stream}
-              label={p.name}
-              camOff={!p.camOn}
-              micOn={p.micOn}
-            />
-          ))}
-          <VideoTile stream={localStream} muted isSelf label={`${name} (You)`} camOff={!camOn} micOn={micOn} />
+      {error && (
+        <div className="flex items-center gap-2 text-xs text-alert bg-alert/10 border border-alert/20 rounded-xl px-4 py-2">
+          <ShieldAlert size={14} className="shrink-0" />
+          {error}
         </div>
+      )}
+
+      <div className="flex-1 flex flex-col md:flex-row gap-4 min-h-0">
+        {focused ? (
+          // In-app focus mode: the selected tile fills most of the space,
+          // everyone else becomes a thumbnail strip. Nothing here calls the
+          // Fullscreen API — it's plain layout/CSS, so meeting controls,
+          // chat, and the header stay visible and interactive throughout.
+          <div className="flex-1 flex flex-col gap-3 min-h-0">
+            <div className="flex-1 min-h-0 transition-all duration-300">
+              <VideoTile
+                stream={focused.stream}
+                muted={focused.isSelf}
+                isSelf={focused.isSelf}
+                label={focused.label}
+                camOff={focused.camOff}
+                micOn={focused.micOn}
+                isFocused
+                onToggleFocus={() => toggleFocus(focused.id)}
+              />
+            </div>
+            <div className="h-24 md:h-28 shrink-0 flex gap-2 overflow-x-auto snap-x snap-mandatory pb-1">
+              {others.map((t) => (
+                <div key={t.id} className="w-32 md:w-40 aspect-video shrink-0 snap-start">
+                  <VideoTile
+                    stream={t.stream}
+                    muted={t.isSelf}
+                    isSelf={t.isSelf}
+                    label={t.label}
+                    camOff={t.camOff}
+                    micOn={t.micOn}
+                    onToggleFocus={() => toggleFocus(t.id)}
+                  />
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : useScrollStrip ? (
+          // Beyond ~8 people, tiles stop shrinking and the row scrolls
+          // horizontally instead — keeps every tile at a readable size.
+          <div className="flex-1 flex gap-3 overflow-x-auto snap-x snap-mandatory min-h-0 pb-1">
+            {tiles.map((t) => (
+              <div key={t.id} className="w-64 md:w-72 shrink-0 snap-start">
+                <VideoTile
+                  stream={t.stream}
+                  muted={t.isSelf}
+                  isSelf={t.isSelf}
+                  label={t.label}
+                  camOff={t.camOff}
+                  micOn={t.micOn}
+                  onToggleFocus={() => toggleFocus(t.id)}
+                />
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className={`flex-1 grid ${gridClass} gap-4 min-h-0 auto-rows-fr`}>
+            {tiles.map((t) => (
+              <VideoTile
+                key={t.id}
+                stream={t.stream}
+                muted={t.isSelf}
+                isSelf={t.isSelf}
+                label={t.label}
+                camOff={t.camOff}
+                micOn={t.micOn}
+                onToggleFocus={() => toggleFocus(t.id)}
+              />
+            ))}
+          </div>
+        )}
 
         {chatOpen && (
           <div className="w-full md:w-80 h-64 md:h-auto shrink-0">
