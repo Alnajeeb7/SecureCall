@@ -167,6 +167,38 @@ export function useCallSecure(roomCode: string, isHost: boolean, displayName: st
       setStatus((s) => (s === "left" || s === "full" || s === "error" ? s : "connected"));
     }
 
+    /**
+     * Applied the moment any call (host<->guest or guest<->guest) is
+     * established. Two problems, one shared cause: with no explicit
+     * encoding parameters, the browser defaults to sending video as fast/
+     * high-res as it thinks the link allows, which on a constrained or
+     * long-distance connection means video traffic crowds out the much
+     * smaller, latency-sensitive audio stream — audio's jitter buffer
+     * starves first and goes silent while video merely gets choppy. Capping
+     * video's bitrate and explicitly marking audio as high priority keeps
+     * both flowing smoothly on the same constrained link instead of video
+     * silently winning the contest every time.
+     */
+    async function applyRealtimeEncodingDefaults(pc: RTCPeerConnection) {
+      for (const sender of pc.getSenders()) {
+        if (!sender.track) continue;
+        try {
+          const params = sender.getParameters();
+          if (!params.encodings?.length) params.encodings = [{}];
+          if (sender.track.kind === "audio") {
+            params.encodings[0].priority = "high";
+            params.encodings[0].networkPriority = "high";
+          } else if (sender.track.kind === "video") {
+            params.encodings[0].maxBitrate = 900_000;
+            params.degradationPreference = "maintain-framerate";
+          }
+          await sender.setParameters(params);
+        } catch {
+          /* not every browser/track combo allows every param — safe to skip */
+        }
+      }
+    }
+
     function wireCall(call: MediaConnection) {
       calls.set(call.peer, call);
       // If we're already screen sharing when this call connects (e.g. we
@@ -176,6 +208,7 @@ export function useCallSecure(roomCode: string, isHost: boolean, displayName: st
         const sender = call.peerConnection?.getSenders().find((s) => s.track?.kind === "video");
         sender?.replaceTrack(screenTrackRef.current).catch(() => {});
       }
+      if (call.peerConnection) applyRealtimeEncodingDefaults(call.peerConnection);
       call.on("stream", (remote) => {
         // eslint-disable-next-line no-console
         console.log(
@@ -301,7 +334,7 @@ export function useCallSecure(roomCode: string, isHost: boolean, displayName: st
       try {
         const { default: PeerCtor } = await import("peerjs");
         const media = await navigator.mediaDevices.getUserMedia({
-          video: { width: 1280, height: 720 },
+          video: { width: { ideal: 960 }, height: { ideal: 540 }, frameRate: { ideal: 24 } },
           audio: { echoCancellation: true, noiseSuppression: true },
         });
         if (cancelled) {
@@ -465,7 +498,7 @@ export function useCallSecure(roomCode: string, isHost: boolean, displayName: st
         await videoTrack.applyConstraints(
           next
             ? { width: { ideal: 480 }, height: { ideal: 360 }, frameRate: { ideal: 15 } }
-            : { width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 30 } }
+            : { width: { ideal: 960 }, height: { ideal: 540 }, frameRate: { ideal: 24 } }
         );
       } catch {
         /* some cameras reject constraint changes mid-stream; safe to ignore */
