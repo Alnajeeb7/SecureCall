@@ -4,6 +4,7 @@ import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Lock, Copy, Check, ShieldAlert, Users, ArrowRight, Video } from "lucide-react";
 import { useCallSecure, MAX_PARTICIPANTS } from "@/lib/peer";
+import { unlockAudioPlayback } from "@/lib/audioUnlock";
 import VideoTile from "@/components/VideoTile";
 import Controls from "@/components/Controls";
 import Chat from "@/components/Chat";
@@ -38,6 +39,7 @@ export default function RoomPage() {
               e.preventDefault();
               const clean = nameInput.trim().slice(0, 24);
               if (!clean) return;
+              unlockAudioPlayback();
               sessionStorage.setItem(NAME_KEY, clean);
               setName(clean);
             }}
@@ -89,6 +91,7 @@ function RoomInner({ code, name }: { code: string; name: string }) {
     micOn,
     camOn,
     screenSharing,
+    screenShareSupported,
     lowBandwidth,
     messages,
     toggleMic,
@@ -378,6 +381,7 @@ function RoomInner({ code, name }: { code: string; name: string }) {
         micOn={micOn}
         camOn={camOn}
         screenSharing={screenSharing}
+        screenShareSupported={screenShareSupported}
         lowBandwidth={lowBandwidth}
         onToggleMic={toggleMic}
         onToggleCam={toggleCam}

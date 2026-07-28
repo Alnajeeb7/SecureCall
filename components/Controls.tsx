@@ -18,6 +18,7 @@ export default function Controls({
   micOn,
   camOn,
   screenSharing,
+  screenShareSupported = true,
   lowBandwidth,
   onToggleMic,
   onToggleCam,
@@ -33,6 +34,7 @@ export default function Controls({
   micOn: boolean;
   camOn: boolean;
   screenSharing: boolean;
+  screenShareSupported?: boolean;
   lowBandwidth: boolean;
   onToggleMic: () => void;
   onToggleCam: () => void;
@@ -72,7 +74,12 @@ export default function Controls({
         <IconButton onClick={onToggleCam} active={camOn} label={camOn ? "Turn off camera" : "Turn on camera"}>
           {camOn ? <Video size={18} /> : <VideoOff size={18} />}
         </IconButton>
-        <IconButton onClick={onToggleScreen} active={screenSharing} label="Share screen">
+        <IconButton
+          onClick={onToggleScreen}
+          active={screenSharing}
+          label={screenShareSupported ? "Share screen" : "Screen share isn't supported by this browser"}
+          disabled={!screenShareSupported}
+        >
           <ScreenShare size={18} />
         </IconButton>
         <IconButton onClick={onToggleChat} active={chatOpen} label="Chat">
@@ -117,20 +124,23 @@ function IconButton({
   onClick,
   active,
   label,
+  disabled,
 }: {
   children: React.ReactNode;
   onClick: () => void;
   active: boolean;
   label: string;
+  disabled?: boolean;
 }) {
   return (
     <button
       onClick={onClick}
       title={label}
       aria-label={label}
+      disabled={disabled}
       className={`flex items-center justify-center w-11 h-11 rounded-full transition ${
         active ? "bg-white/10 text-ink" : "bg-alert/20 text-alert"
-      } hover:bg-white/15`}
+      } hover:bg-white/15 disabled:opacity-30 disabled:hover:bg-white/10 disabled:pointer-events-none`}
     >
       {children}
     </button>

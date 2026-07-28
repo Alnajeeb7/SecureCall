@@ -456,7 +456,23 @@ export function useCallSecure(roomCode: string, isHost: boolean, displayName: st
     broadcastMsg({ type: "media-state", micOn, camOn: next });
   }, [micOn, camOn, broadcastMsg]);
 
+  // iOS Safari (and therefore every browser on iPhone/iPad, since they all
+  // must use WebKit under the hood) doesn't implement getDisplayMedia() at
+  // all — there's no polyfill for a capability the OS/browser doesn't
+  // expose. Android support also varies a lot by browser/version. Detect it
+  // up front so the UI can say so honestly instead of a button that
+  // silently does nothing when tapped.
+  const screenShareSupported =
+    typeof navigator !== "undefined" && typeof navigator.mediaDevices?.getDisplayMedia === "function";
+
   const toggleScreenShare = useCallback(async () => {
+    if (!screenShareSupported) {
+      setError(
+        "Screen sharing isn't supported by this browser — this is a limitation of mobile browsers themselves (Safari on iOS doesn't expose it at all), not something an update can add. Try from a desktop browser instead."
+      );
+      return;
+    }
+
     const senders = Array.from(callsRef.current.values())
       .map((call) => call.peerConnection?.getSenders().find((s) => s.track?.kind === "video"))
       .filter((s): s is RTCRtpSender => Boolean(s));
@@ -480,7 +496,7 @@ export function useCallSecure(roomCode: string, isHost: boolean, displayName: st
       await Promise.all(senders.map((s) => s.replaceTrack(cameraTrackRef.current!)));
       setScreenSharing(false);
     }
-  }, [screenSharing]);
+  }, [screenSharing, screenShareSupported]);
 
   /**
    * Weaker or congested links — common on long-distance international
@@ -552,6 +568,7 @@ export function useCallSecure(roomCode: string, isHost: boolean, displayName: st
     micOn,
     camOn,
     screenSharing,
+    screenShareSupported,
     lowBandwidth,
     messages,
     toggleMic,
